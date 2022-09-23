@@ -12,7 +12,7 @@ Unless otherwise specified, list the command and all arguments that you passed t
 
 
 ## Setup Instructions
-1. Build the workspace using `${insert command here}` so that it is unnecessary to rebuild when python files change.
+1. Build the workspace using `colcon build --symlink-install` so that it is unnecessary to rebuild when python files change.
 2. Initialize the ROS environment (i.e., set the necessary ROS environment variables) by executing `${insert command here}`
 3. Make sure no other ROS nodes are running prior to starting.
 3. Run the launchfile `go_crazy_turtle.launch.xml` by executing `${insert command here}`
