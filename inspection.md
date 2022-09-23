@@ -72,38 +72,38 @@ If the nodes launched from the `launchfile` are not running, you will get incorr
 
 10. Use the ROS command `ros2 param list` to list the parameters of all running nodes
     ```
-   /mover:
-   use_sim_time
-   velocity
-   /roving_turtle:
-   background_b
-   background_g
-   background_r
-   qos_overrides./parameter_events.publisher.depth
-   qos_overrides./parameter_events.publisher.durability
-   qos_overrides./parameter_events.publisher.history
-   qos_overrides./parameter_events.publisher.reliability
-   use_sim_time
+      /mover:
+      use_sim_time
+      velocity
+      /roving_turtle:
+      background_b
+      background_g
+      background_r
+      qos_overrides./parameter_events.publisher.depth
+      qos_overrides./parameter_events.publisher.durability
+      qos_overrides./parameter_events.publisher.history
+      qos_overrides./parameter_events.publisher.reliability
+      use_sim_time
     ```
 
 11. Use the ROS command `ros2 param describe /mover velocity` to get information about the `/mover` `velocity` parameter, including its type, description, and constraints
     ```
-   Parameter name: velocity
-   Type: double
-   Description: The velocity of the turtle
-   Constraints:
+      Parameter name: velocity
+      Type: double
+      Description: The velocity of the turtle
+      Constraints:
     ```
 
 12. Use the ROS command `ros2 interface show crazy_turtle_interfaces/srv/Switch` to retrieve a template/prototype for entering parameters for the `/switch` service on the command line.
     ```
-	float32 x
-	float32 y
-	float32 theta
-	float32 linear_velocity
-	float32 angular_velocity
----
-float64 x # the new x position of the new turtle
-float64 y # the new y position of the new
+      float32 x
+      float32 y
+      float32 theta
+      float32 linear_velocity
+      float32 angular_velocity
+   ---
+   float64 x # the new x position of the new turtle
+   float64 y # the new y position of the new
     ```
 
 ## Package Exploration
