@@ -18,7 +18,7 @@ Unless otherwise specified, list the command and all arguments that you passed t
 3. Run the launchfile `go_crazy_turtle.launch.xml` by executing `ros2 launch crazy_turtle go_crazy_turtle.launch.xml`
 4. When running you can see a visual depiction of the ROS graph using the `rqt_graph` command.
    The ROS graph, including all topics and node labels, looks like:
-   ![The ROS Graph](https://github.com/ME495-EmbeddedSystems/homework1-oubrejames/blob/main/rosgraph.svg)
+   ![The ROS Graph](https://github.com/ME495-EmbeddedSystems/homework1-oubrejames/blob/work/rosgraph.svg)
 
 ## Runtime Information
 The `launchfile` from above should be running at all times when executing these commands.
