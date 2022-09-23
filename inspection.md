@@ -13,7 +13,7 @@ Unless otherwise specified, list the command and all arguments that you passed t
 
 ## Setup Instructions
 1. Build the workspace using `colcon build --symlink-install` so that it is unnecessary to rebuild when python files change.
-2. Initialize the ROS environment (i.e., set the necessary ROS environment variables) by executing `${insert command here}`
+2. Initialize the ROS environment (i.e., set the necessary ROS environment variables) by executing `source /opt/ros/humble/setup.bash`
 3. Make sure no other ROS nodes are running prior to starting.
 3. Run the launchfile `go_crazy_turtle.launch.xml` by executing `ros2 launch crazy_turtle go_crazy_turtle.launch.xml`
 4. When running you can see a visual depiction of the ROS graph using the `rqt_graph` command.
@@ -94,38 +94,52 @@ If the nodes launched from the `launchfile` are not running, you will get incorr
       Constraints:
     ```
 
-12. Use the ROS command `ros2 interface show crazy_turtle_interfaces/srv/Switch` to retrieve a template/prototype for entering parameters for the `/switch` service on the command line.
+12. Use the ROS command `ros2 interface proto crazy_turtle_interfaces/srv/Switch` to retrieve a template/prototype for entering parameters for the `/switch` service on the command line.
     ```
-      float32 x
-      float32 y
-      float32 theta
-      float32 linear_velocity
-      float32 angular_velocity
-   ---
-   float64 x # the new x position of the new turtle
-   float64 y # the new y position of the new
+      "mixer:
+      x: 0.0
+      y: 0.0
+      theta: 0.0
+      linear_velocity: 0.0
+      angular_velocity: 0.0
+      "
+
     ```
 
 ## Package Exploration
-1. Use the ROS command `${command and args}` to list the interface types defined by `crazy_turtle_interfaces`
+1. Use the ROS command ` ros2 interface package crazy_turtle_interfaces` to list the interface types defined by `crazy_turtle_interfaces`
    The output of the command looks like
    ```
-   ${list service types here}
+   crazy_turtle_interfaces/srv/Switch
+
    ```
-2. Use the ROS command `${command and args}` to list the executables included with the `crazy_turtle` package
+2. Use the ROS command `ros2 pkg executables crazy_turtle` to list the executables included with the `crazy_turtle` package
    The output of the command looks like
    ```
-   ${list executables here}
+   crazy_turtle mover
+
    ```
 
 ## Live Interaction
-1. Use the command `${command and args here}` to retrieve the value of the `/mover velocity` parameter, which is `${value here}`.
+1. Use the command `ros2 param get /mover velocity ` to retrieve the value of the `/mover velocity` parameter, which is `Double value is: 4.5`.
 2. The ROS command to call the `/switch` service, and it's output is listed below:
     ```
-    ${enter the command and its output here. Call with x=1.0, y=2.0, theta=0.0, angular_velocity=3.0, linear_velocity=4.0}
+   ros2 service call /switch crazy_turtle_interfaces/srv/Switch "mixer:
+      x: 1.0
+      y: 2.0
+      theta: 0.0
+      linear_velocity: 4.0
+      angular_velocity: 3.0
+         "
+         waiting for service to become available...
+         requester: making request: crazy_turtle_interfaces.srv.Switch_Request(mixer=turtlesim.msg.Pose(x=1.0, y=2.0, theta=0.0, linear_velocity=4.0, angular_velocity=3.0))
+
+         response:
+         crazy_turtle_interfaces.srv.Switch_Response(x=5.0, y=4.0)
+
     ```
 3. The `switch` service performs the following actions (in sequence):
-    1. It ${does what to?} the current turtle
+    1. It removes the current turtle
     2. It then respawns a new turtle at ${location as a function of the `/switch` service parameters}
 4. What happens to the turtle's motion if you use `${command and args here}` to change `/mover velocity` to 10? ${faster | slower | same}
 5. Use the Linux command `${command and args}` to kill the `/mover` node.

@@ -5,4 +5,4 @@ Author: James Oubre
 3. The `${srv}` starts and stops the turtle
 4. Here is a video of the turtle in action
    `${embed video here}`
-Worked With: Liz Metzger, Dilan Wijesinghe
+Worked With: Liz Metzger, Dilan Wijesinghe, Meg Sindelar
