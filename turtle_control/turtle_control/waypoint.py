@@ -31,7 +31,8 @@ class WaypointNode(Node):
         """
         TODO
         """
-        self.get_logger().error("Issuing Command!")
+        if self.state == State.MOVING:
+            self.get_logger().info("Issuing Command!")
     
     def toggle_callback(self, request, response):
         """_summary_
