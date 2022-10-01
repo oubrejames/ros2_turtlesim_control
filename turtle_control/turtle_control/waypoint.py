@@ -48,31 +48,31 @@ class WaypointNode(Node):
         """
         # Reset turtle
         if self.state == State.STOPPED:
-            print("STATE = STOPPED")
+            #print("STATE = STOPPED")
             self.reset_turtle()
             self.waypoint_l = waypoint_list
             self.response_l = response
         else:
             self.state = State.TELEPORT
             self.drawX()
-            # for i in range( len(waypoint_list.mixer)):
-            #     xx = waypoint_list.mixer[i].x
-            #     yy = waypoint_list.mixer[i].y
-            #     tt = waypoint_list.mixer[i].theta
-            #     self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = tt))
-            #     self.state = State.TELEPORT
-                
-                
+                             
         # Move turtle to first waypoint
         # Turtle shouldn't move until toggle is called
         # Computes straight line distance of waypoints 
         return response
                     
     def reset_turtle(self):
-        print("Reseting Turtle")
+        #print("Reseting Turtle")
+        # Below lines are to make sure we can reset the turtle and the point and x count start over
+        self.all_X_done = False
+        self.X_done = False
+        self.X_count = 0
+        self.X_point_count = 0
+        
         self.reset_future = self.reset.call_async(Empty.Request())
+        
         self.state = State.RESET
-        print("STATE = RESET")
+        #print("STATE = RESET")
           
     def drawX(self):
         """Takes in a set of waypoints from the load service and draws an x at each.
@@ -84,10 +84,12 @@ class WaypointNode(Node):
         # Draw first line
         i = self.X_count # The count of each x instance
         point = self.waypoint_l
-        print("Point", i)#point.mixer[i])
-        
+        #print("Point", i)#point.mixer[i])
+        #print("Point count", self.X_point_count)
         # Turn off pen
-        
+        print("Current X: ", self.X_count)
+        print("Current X Point: ", self.X_point_count)
+
         #Go to center of x
         if not self.all_X_done:
             if self.X_point_count == 0:
@@ -128,6 +130,7 @@ class WaypointNode(Node):
                 draw_y_4 = point.mixer[i].y - 0.25    
                 self.X_done = True
                 self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_4 , y = draw_y_4, theta = 0.0))
+            
                 
                 
     def timer_callback(self):
@@ -144,14 +147,15 @@ class WaypointNode(Node):
             if self.teleport_future.done():
                 #print(f"Teleport {self.X_count} done")
                 if not self.X_done:
+                    #print(self.X_point_count)
                     self.X_point_count += 1
-                    print(self.X_point_count)
                     self.drawX()   
                 elif self.X_count == len(self.waypoint_l.mixer)-1:
                     # print("LENGTH", len(self.waypoint_l.mixer))
                     self.all_X_done = True
+                    self.X_count = 0
                     self.state = State.STOPPED
-                    print("DONE Teleporting")
+                    #print("DONE Teleporting")
                 else:
                     self.X_count += 1
                     self.X_point_count = 0
@@ -164,6 +168,7 @@ class WaypointNode(Node):
                 print("Reset future done")
                 self.load_callback(self.waypoint_l, self.response_l)
                 self.state = State.TELEPORT
+                
                 
         print("STATE =", self.state)
             
