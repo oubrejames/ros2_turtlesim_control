@@ -5,7 +5,7 @@ from rcl_interfaces.msg import ParameterDescriptor
 from enum import Enum, auto
 from std_srvs.srv import Empty
 from turtle_interfaces.srv import Waypoints
-from turtlesim.srv import Spawn, Kill, TeleportAbsolute
+from turtlesim.srv import Spawn, Kill, TeleportAbsolute, SetPen
 from time import sleep
 
 class State(Enum):
@@ -15,7 +15,9 @@ class State(Enum):
     MOVING = auto(),
     STOPPED = auto(),
     TELEPORT = auto(),
-    RESET = auto()
+    RESET = auto(),
+    SETPEN = auto(),
+    LIMBO = auto()
                 
 class WaypointNode(Node):
     """TODO _summary_
@@ -35,7 +37,8 @@ class WaypointNode(Node):
         self.X_count = 0 # Count of the number of x's (waypoints)
         self.X_point_count = 0 # Which point of the x are we at? (center or one of the four corners)
         self.X_done = False # Flag for if x has been totally drawn
-
+        self.all_X_done = False # Flag for if done drawing all x's
+        self.set_pen = self.create_client(SetPen, "turtle1/set_pen")
         if not self.teleport.wait_for_service(timeout_sec=1.0):
             raise RuntimeError('Timeout waiting for "teleport_absolute" service to become available')
             
@@ -84,42 +87,48 @@ class WaypointNode(Node):
         print("Point", i)#point.mixer[i])
         
         # Turn off pen
+        
         #Go to center of x
-        if self.X_point_count == 0:
-            xx = point.mixer[i].x
-            yy = point.mixer[i].y
-            self.state = State.TELEPORT
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = 0.0))
-            self.state = State.TELEPORT
-            
-            
-        if self.X_point_count == 1:
-            draw_x_1 = point.mixer[i].x - 0.25
-            draw_y_1 = point.mixer[i].y - 0.25
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_1 , y = draw_y_1, theta = 0.0))
-            
-            
-        if self.X_point_count == 2:            
-            # Turn on pen
-            draw_x_2 = point.mixer[i].x + 0.25
-            draw_y_2 = point.mixer[i].y + 0.25    
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_2 , y = draw_y_2, theta = 0.0))
-            
-            
-        if self.X_point_count == 3:     
-            # Draw first line
-            # Turn off pen
-            draw_x_3 = point.mixer[i].x - 0.25
-            draw_y_3 = point.mixer[i].y + 0.25
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_3 , y = draw_y_3, theta = 0.0))
-            
-        if self.X_point_count == 4:     
-            # Turn on pen
-            draw_x_4 = point.mixer[i].x + 0.25
-            draw_y_4 = point.mixer[i].y - 0.25    
-            self.X_done = True
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_4 , y = draw_y_4, theta = 0.0))
-            
+        if not self.all_X_done:
+            if self.X_point_count == 0:
+                xx = point.mixer[i].x
+                yy = point.mixer[i].y
+                self.state = State.TELEPORT
+                self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=1))
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = 0.0))
+                self.state = State.TELEPORT
+                
+                
+            if self.X_point_count == 1:
+                draw_x_1 = point.mixer[i].x - 0.25
+                draw_y_1 = point.mixer[i].y - 0.25
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_1 , y = draw_y_1, theta = 0.0))
+                
+                
+            if self.X_point_count == 2:            
+                # Turn on pen
+                self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=0))
+                draw_x_2 = point.mixer[i].x + 0.25
+                draw_y_2 = point.mixer[i].y + 0.25    
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_2 , y = draw_y_2, theta = 0.0))
+                
+                
+            if self.X_point_count == 3:     
+                # Draw first line
+                # Turn off pen
+                self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=1))
+                draw_x_3 = point.mixer[i].x - 0.25
+                draw_y_3 = point.mixer[i].y + 0.25
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_3 , y = draw_y_3, theta = 0.0))
+                
+            if self.X_point_count == 4:     
+                # Turn on pen
+                self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=0))
+                draw_x_4 = point.mixer[i].x + 0.25
+                draw_y_4 = point.mixer[i].y - 0.25    
+                self.X_done = True
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_4 , y = draw_y_4, theta = 0.0))
+                
                 
     def timer_callback(self):
         """
@@ -138,6 +147,11 @@ class WaypointNode(Node):
                     self.X_point_count += 1
                     print(self.X_point_count)
                     self.drawX()   
+                elif self.X_count == len(self.waypoint_l.mixer)-1:
+                    # print("LENGTH", len(self.waypoint_l.mixer))
+                    self.all_X_done = True
+                    self.state = State.STOPPED
+                    print("DONE Teleporting")
                 else:
                     self.X_count += 1
                     self.X_point_count = 0
@@ -150,6 +164,8 @@ class WaypointNode(Node):
                 print("Reset future done")
                 self.load_callback(self.waypoint_l, self.response_l)
                 self.state = State.TELEPORT
+                
+        print("STATE =", self.state)
             
                 
     def toggle_callback(self, request, response):
