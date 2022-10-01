@@ -4,13 +4,13 @@ Publishes twist that will move a robot back and forth in the linear x direction
 while randomly providing an angular velocity about the z-axis.
 
 PUBLISHERS:
-  + cmd_vel (twist) - The velocity of an erratic turtle path
+  + /cmd_vel (twist) - The velocity of an erratic turtle path
 
 SERVICES:
-  + switch (Switch) - Position of the new turtle
+  + /switch (Switch) - Position of the new turtle
 
 PARAMETERS:
-  + velocity (double) - Velocity driving the robot
+  + /velocity (double) - Velocity driving the robot
 
 """
 
