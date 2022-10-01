@@ -14,7 +14,9 @@ class State(Enum):
     """
     MOVING = auto(),
     STOPPED = auto(),
-    TELEPORT = auto()
+    TELEPORT = auto(),
+    RESET = auto(),
+    INIT = auto()
     
 class WaypointNode(Node):
     """TODO _summary_
@@ -40,23 +42,29 @@ class WaypointNode(Node):
         
         """
         # Reset turtle
-        #print("Reseting Turtle")
-        #self.reset_future = self.reset.call_async(Empty.Request())
-        
-        # Draw X at each waypoint
-        
+        if self.state == State.STOPPED:
+            print("STATE = STOPPED")
+            self.reset_turtle()
+            self.waypoint_l = waypoint_list
+            self.response_l = response
+        else:
+            for i in range( len(waypoint_list.mixer)):
+                xx = waypoint_list.mixer[i].x
+                yy = waypoint_list.mixer[i].y
+                tt = waypoint_list.mixer[i].theta
+                self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = tt))
+                self.state = State.TELEPORT
         # Move turtle to first waypoint
         # Turtle shouldn't move until toggle is called
-        print(waypoint_list)
-        for i in range( len(waypoint_list.mixer)):
-            xx = waypoint_list.mixer[i].x
-            yy = waypoint_list.mixer[i].y
-            tt = waypoint_list.mixer[i].theta
-            self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = tt))
-            self.state = State.TELEPORT
-
         # Computes straight line distance of waypoints 
         return response
+    
+    def reset_turtle(self):
+        print("Reseting Turtle")
+        self.reset_future = self.reset.call_async(Empty.Request())
+        self.state = State.RESET
+        print("STATE = RESET")
+          
     
     def timer_callback(self):
         """
@@ -67,8 +75,16 @@ class WaypointNode(Node):
 
         if self.state == State.TELEPORT:
             if self.teleport_future.done():
-                #self.teleport_future2 = self.teleport.call_async(TeleportAbsolute.Request(x = 0.0 , y = 7.0 , theta = 2.0))
-                self.state = State.STOPPED    
+                print("Teleport done")
+                self.state = State.STOPPED   
+                
+        if self.state == State.RESET:
+            #print("State = reset")
+            if self.reset_future.done():
+                print("Reset future done")
+                self.load_callback(self.waypoint_l, self.response_l)
+                self.state = State.STOPPED
+            
                 
     def toggle_callback(self, request, response):
         """_summary_
