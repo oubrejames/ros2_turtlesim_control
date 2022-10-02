@@ -21,7 +21,8 @@ class State(Enum):
     TELEPORT = auto(),
     RESET = auto(),
     SETPEN = auto(),
-    LIMBO = auto()
+    LIMBO = auto(),
+    GOHOME = auto()
                 
 class WaypointNode(Node):
     """TODO _summary_
@@ -98,8 +99,9 @@ class WaypointNode(Node):
                     if self.turtle_pose.theta > phi:
                         move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
                                                 angular = Vector3(x = 0.0, y = 0.0, z = 2.5))
-                        self.pub_vel.publish(move_turtle_ang)                       
-                
+                        self.pub_vel.publish(move_turtle_ang)            
+                                               
+            
 
     def load_callback(self, waypoint_list, response):
         """TODO
@@ -117,12 +119,17 @@ class WaypointNode(Node):
                              
         # Move turtle to first waypoint
         # Turtle shouldn't move until toggle is called
-        if self.state == State.MOVING:
-            self.move_to_waypoint()
+
             
         
-        
         # Computes straight line distance of waypoints 
+        response.distance = 0.0
+        for ind in range(len(waypoint_list.mixer)):
+            if ind < len(waypoint_list.mixer)-1:
+                x_diff = waypoint_list.mixer[ind+1].x - waypoint_list.mixer[ind].x
+                y_diff = waypoint_list.mixer[ind+1].y - waypoint_list.mixer[ind].y
+                a_distance = math.sqrt(x_diff**2 + y_diff**2)
+                response.distance += a_distance
         
         return response
                     
@@ -209,13 +216,21 @@ class WaypointNode(Node):
         # print("Actual state = ", self.state)
         # print("Timer Callback")
         self.spin_count += 1
+
+            
         if self.state == State.MOVING:
-            #self.get_logger().info("Issuing Command!")
-            self.move_to_waypoint()
-            if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) < self.tolerance and 
-                abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) < self.tolerance):
-                self.way_count += 1 
-                print("weeee")
+            self.get_logger().info("Issuing Command!")
+            print(self.state)
+            if self.way_count == len(self.waypoint_l.mixer):
+                print("STOPPED")
+                self.way_count = 0
+                # self.state = State.STOPPED
+            else:
+                self.move_to_waypoint()
+                if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) < self.tolerance and 
+                    abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) < self.tolerance):
+                    self.way_count += 1 
+                    print("weeee")
 
         if self.state == State.TELEPORT:
             #print("State = TELEPORT")
@@ -243,7 +258,11 @@ class WaypointNode(Node):
                 print("Reset future done")
                 self.load_callback(self.waypoint_l, self.response_l)
                 self.state = State.TELEPORT
-                
+        
+        if self.state == State.STOPPED:
+                move_turtle = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                        angular = Vector3(x = 0.0, y = 0.0, z = 0.0))
+                self.pub_vel.publish(move_turtle) 
                 
         #print("STATE =", self.state)
                  
