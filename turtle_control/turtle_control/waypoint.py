@@ -1,4 +1,5 @@
 from queue import Empty
+import turtle
 import rclpy
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
@@ -6,7 +7,10 @@ from enum import Enum, auto
 from std_srvs.srv import Empty
 from turtle_interfaces.srv import Waypoints
 from turtlesim.srv import Spawn, Kill, TeleportAbsolute, SetPen
+from turtlesim.msg import Pose
 from time import sleep
+from geometry_msgs.msg import Twist, Vector3
+import math
 
 class State(Enum):
     """ Current state of the system.
@@ -29,7 +33,7 @@ class WaypointNode(Node):
     def __init__(self):
         super().__init__("waypointnode")
         self.state =  State.STOPPED
-        self.timer = self.create_timer(0.01, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
         self.toggle = self.create_service(Empty, "toggle", self.toggle_callback)
         self.load = self.create_service(Waypoints, "load", self.load_callback)
         self.reset = self.create_client(Empty, "reset")
@@ -39,9 +43,40 @@ class WaypointNode(Node):
         self.X_done = False # Flag for if x has been totally drawn
         self.all_X_done = False # Flag for if done drawing all x's
         self.set_pen = self.create_client(SetPen, "turtle1/set_pen")
-        if not self.teleport.wait_for_service(timeout_sec=1.0):
-            raise RuntimeError('Timeout waiting for "teleport_absolute" service to become available')
+        self.pub_vel = self.create_publisher(Twist, "turtle1/cmd_vel", 10)
+        self.way_count = 0 # Counter to keep track of what waypoint to move to
+        self.sub = self.create_subscription(Pose, "turtle1/pose", self.listener_callback, 10)
+               
+    def listener_callback(self, msg):
+        """Get turtle pose
+        """
+        self.turtle_pose = msg
+        #print(self.turtle_pose)
+        
+    def move_to_waypoint(self):
+        """
+        Moves turtle to the next waypoint
+        """
+        if self.state == State.MOVING:
+            self.set_pen_future = self.set_pen.call_async(SetPen.Request(r = 3, g = 252, b = 169, width = 3, off=0))
             
+            # Calculate angle to waypoint (phi)
+            y= self.waypoint_l.mixer[self.way_count].y - self.turtle_pose.y
+            x= self.waypoint_l.mixer[self.way_count].x - self.turtle_pose.x
+            phi = math.atan2(y,x)
+            
+            # Turn towards waypoint
+            if self.turtle_pose.theta < phi:
+                move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                        angular = Vector3(x = 0.0, y = 0.0, z = 1.0))
+                self.pub_vel.publish(move_turtle_ang)
+            if self.turtle_pose.theta > phi:
+                move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                        angular = Vector3(x = 0.0, y = 0.0, z = -1.0))
+                self.pub_vel.publish(move_turtle_ang)                
+                
+            # Move forward in x 
+                            
     def load_callback(self, waypoint_list, response):
         """TODO
         
@@ -58,7 +93,13 @@ class WaypointNode(Node):
                              
         # Move turtle to first waypoint
         # Turtle shouldn't move until toggle is called
+        if self.state == State.MOVING:
+            self.move_to_waypoint()
+            
+        
+        
         # Computes straight line distance of waypoints 
+        
         return response
                     
     def reset_turtle(self):
@@ -87,8 +128,8 @@ class WaypointNode(Node):
         #print("Point", i)#point.mixer[i])
         #print("Point count", self.X_point_count)
         # Turn off pen
-        print("Current X: ", self.X_count)
-        print("Current X Point: ", self.X_point_count)
+        #print("Current X: ", self.X_count)
+        #print("Current X Point: ", self.X_point_count)
 
         #Go to center of x
         if not self.all_X_done:
@@ -128,11 +169,15 @@ class WaypointNode(Node):
                 self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=0))
                 draw_x_4 = point.mixer[i].x + 0.25
                 draw_y_4 = point.mixer[i].y - 0.25    
-                self.X_done = True
                 self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = draw_x_4 , y = draw_y_4, theta = 0.0))
-            
-                
-                
+                # Teleport to firt waypoint after making x's
+                self.X_done = True
+                if self.X_done == True:
+                    xx = point.mixer[0].x
+                    yy = point.mixer[0].y
+                    self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=1))
+                    self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = 0.0))
+                   
     def timer_callback(self):
         """
         TODO
@@ -141,6 +186,11 @@ class WaypointNode(Node):
         # print("Timer Callback")
         if self.state == State.MOVING:
             self.get_logger().info("Issuing Command!")
+            self.move_to_waypoint()
+            if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) <0.2 and 
+                abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) <0.2):
+                self.way_count += 1 
+                print("weeee")
 
         if self.state == State.TELEPORT:
             #print("State = TELEPORT")
@@ -170,9 +220,8 @@ class WaypointNode(Node):
                 self.state = State.TELEPORT
                 
                 
-        print("STATE =", self.state)
-            
-                
+        #print("STATE =", self.state)
+                 
     def toggle_callback(self, request, response):
         """_summary_
         TODO
@@ -180,9 +229,14 @@ class WaypointNode(Node):
         # Switch the state 
         if self.state == State.STOPPED:
             self.state = State.MOVING
+            
+        elif self.state is not State.MOVING:
+            print("Hol' on, I'm doing other stuff")
         else:
             self.state = State.STOPPED
             self.get_logger().error("Stopping")
+            
+        
         return response
 
    
