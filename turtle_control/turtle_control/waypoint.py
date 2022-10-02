@@ -33,7 +33,7 @@ class WaypointNode(Node):
     def __init__(self):
         super().__init__("waypointnode")
         self.state =  State.STOPPED
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(0.01, self.timer_callback)
         self.toggle = self.create_service(Empty, "toggle", self.toggle_callback)
         self.load = self.create_service(Waypoints, "load", self.load_callback)
         self.reset = self.create_client(Empty, "reset")
@@ -46,6 +46,7 @@ class WaypointNode(Node):
         self.pub_vel = self.create_publisher(Twist, "turtle1/cmd_vel", 10)
         self.way_count = 0 # Counter to keep track of what waypoint to move to
         self.sub = self.create_subscription(Pose, "turtle1/pose", self.listener_callback, 10)
+        self.spin_count = 0 # Keep track of spin number
                
     def listener_callback(self, msg):
         """Get turtle pose
@@ -59,24 +60,46 @@ class WaypointNode(Node):
         """
         if self.state == State.MOVING:
             self.set_pen_future = self.set_pen.call_async(SetPen.Request(r = 3, g = 252, b = 169, width = 3, off=0))
-            
-            # Calculate angle to waypoint (phi)
             y= self.waypoint_l.mixer[self.way_count].y - self.turtle_pose.y
             x= self.waypoint_l.mixer[self.way_count].x - self.turtle_pose.x
-            phi = math.atan2(y,x)
-            
-            # Turn towards waypoint
-            if self.turtle_pose.theta < phi:
-                move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
-                                        angular = Vector3(x = 0.0, y = 0.0, z = 1.0))
-                self.pub_vel.publish(move_turtle_ang)
-            if self.turtle_pose.theta > phi:
-                move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
-                                        angular = Vector3(x = 0.0, y = 0.0, z = -1.0))
-                self.pub_vel.publish(move_turtle_ang)                
+            if self.spin_count % 2 == 0: # Alternate updating ang vs lin to speed up the process
+
+                # Calculate distance to move foward
+
+                dist_2_wp = math.sqrt((x**2)+(y**2))
                 
-            # Move forward in x 
+                # Move forward in x 
+                move_turtle_lin = Twist(linear = Vector3(x = 1.0, y = 0.0 ,z =0.0), 
+                                        angular = Vector3(x = 0.0, y = 0.0, z = 0.0))
+                self.pub_vel.publish(move_turtle_lin) 
+            else:
+                # Calculate angle to waypoint (phi)
+                phi = math.atan2(y,x)
+                
+                # Turn towards waypoint
+                print("PHI - theta = ", phi - self.turtle_pose.theta)
+          
+                if abs(phi - self.turtle_pose.theta) < 3.14:
                             
+                    if self.turtle_pose.theta < phi:
+                        move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                                angular = Vector3(x = 0.0, y = 0.0, z = 2.5))
+                        self.pub_vel.publish(move_turtle_ang)
+                    if self.turtle_pose.theta > phi:
+                        move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                                angular = Vector3(x = 0.0, y = 0.0, z = -2.5))
+                        self.pub_vel.publish(move_turtle_ang) 
+                else:
+                    if self.turtle_pose.theta < phi:
+                        move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                                angular = Vector3(x = 0.0, y = 0.0, z = -2.5))
+                        self.pub_vel.publish(move_turtle_ang)
+                    if self.turtle_pose.theta > phi:
+                        move_turtle_ang = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                                angular = Vector3(x = 0.0, y = 0.0, z = 2.5))
+                        self.pub_vel.publish(move_turtle_ang)                       
+                
+
     def load_callback(self, waypoint_list, response):
         """TODO
         
@@ -184,8 +207,10 @@ class WaypointNode(Node):
         """
         # print("Actual state = ", self.state)
         # print("Timer Callback")
+        self.spin_count += 1
+        
         if self.state == State.MOVING:
-            self.get_logger().info("Issuing Command!")
+            #self.get_logger().info("Issuing Command!")
             self.move_to_waypoint()
             if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) <0.2 and 
                 abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) <0.2):
