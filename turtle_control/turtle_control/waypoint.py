@@ -33,7 +33,13 @@ class WaypointNode(Node):
     def __init__(self):
         super().__init__("waypointnode")
         self.state =  State.STOPPED
-        self.timer = self.create_timer(0.01, self.timer_callback)
+        self.declare_parameter("frequency", 100.0,
+                               ParameterDescriptor(description="The frequency to send commands to the turtle"))
+        self.frequency  = self.get_parameter("frequency").get_parameter_value().double_value
+        self.declare_parameter("tolerance", 0.2,
+                               ParameterDescriptor(description="Toelrance of turtle to waypoint"))
+        self.tolerance  = self.get_parameter("tolerance").get_parameter_value().double_value
+        self.timer = self.create_timer(1/self.frequency, self.timer_callback)
         self.toggle = self.create_service(Empty, "toggle", self.toggle_callback)
         self.load = self.create_service(Waypoints, "load", self.load_callback)
         self.reset = self.create_client(Empty, "reset")
@@ -63,11 +69,6 @@ class WaypointNode(Node):
             y= self.waypoint_l.mixer[self.way_count].y - self.turtle_pose.y
             x= self.waypoint_l.mixer[self.way_count].x - self.turtle_pose.x
             if self.spin_count % 2 == 0: # Alternate updating ang vs lin to speed up the process
-
-                # Calculate distance to move foward
-
-                dist_2_wp = math.sqrt((x**2)+(y**2))
-                
                 # Move forward in x 
                 move_turtle_lin = Twist(linear = Vector3(x = 1.0, y = 0.0 ,z =0.0), 
                                         angular = Vector3(x = 0.0, y = 0.0, z = 0.0))
@@ -208,12 +209,11 @@ class WaypointNode(Node):
         # print("Actual state = ", self.state)
         # print("Timer Callback")
         self.spin_count += 1
-        
         if self.state == State.MOVING:
             #self.get_logger().info("Issuing Command!")
             self.move_to_waypoint()
-            if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) <0.2 and 
-                abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) <0.2):
+            if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) < self.tolerance and 
+                abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) < self.tolerance):
                 self.way_count += 1 
                 print("weeee")
 
