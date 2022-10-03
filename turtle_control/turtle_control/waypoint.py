@@ -13,8 +13,7 @@ from geometry_msgs.msg import Twist, Vector3
 import math
 
 class State(Enum):
-    """ Current state of the system.
-        TODO update Determines what the main timer function should be doing on each iteration
+    """ States to keep track of where the system is.
     """
     MOVING = auto(),
     STOPPED = auto(),
@@ -25,10 +24,7 @@ class State(Enum):
     GOHOME = auto()
                 
 class WaypointNode(Node):
-    """TODO _summary_
-
-    Args:
-        Node (_type_): _description_
+    """Generates waypoints based off user input and moves turtle to the waypoints.
     """
     
     def __init__(self):
@@ -56,10 +52,9 @@ class WaypointNode(Node):
         self.spin_count = 0 # Keep track of spin number
                
     def listener_callback(self, msg):
-        """Get turtle pose
+        """Get turtle pose.
         """
         self.turtle_pose = msg
-        #print(self.turtle_pose)
         
     def move_to_waypoint(self):
         """
@@ -104,8 +99,14 @@ class WaypointNode(Node):
             
 
     def load_callback(self, waypoint_list, response):
-        """TODO
-        
+        """When called, this function resets the turtle and then draws the x's on specified waypoints.
+
+        Args:
+            waypoint_list (turtle/Pose): Array of waypoints given from comand line
+            response (float64): The response equals the total straight line distance of the waypoints.
+
+        Returns:
+            response (float64): The response equals the total straight line distance of the waypoints.
         """
         # Reset turtle
         if self.state == State.STOPPED:
@@ -117,11 +118,6 @@ class WaypointNode(Node):
             self.state = State.TELEPORT
             self.drawX()
                              
-        # Move turtle to first waypoint
-        # Turtle shouldn't move until toggle is called
-
-            
-        
         # Computes straight line distance of waypoints 
         response.distance = 0.0
         for ind in range(len(waypoint_list.mixer)):
@@ -134,7 +130,8 @@ class WaypointNode(Node):
         return response
                     
     def reset_turtle(self):
-        #print("Reseting Turtle")
+        """Reset the turtle in turtlesim.
+        """
         # Below lines are to make sure we can reset the turtle and the point and x count start over
         self.all_X_done = False
         self.X_done = False
@@ -150,29 +147,24 @@ class WaypointNode(Node):
         """Takes in a set of waypoints from the load service and draws an x at each.
 
         Args:
-            points (turtlesim/Pose[]): List of waypoints to draw an X at
+            points (turtlesim/Pose): List of waypoints to draw an X at
         """
-        #for i in range( len(point.mixer)):
         # Draw first line
         i = self.X_count # The count of each x instance
         point = self.waypoint_l
-        #print("Point", i)#point.mixer[i])
-        #print("Point count", self.X_point_count)
-        # Turn off pen
-        #print("Current X: ", self.X_count)
-        #print("Current X Point: ", self.X_point_count)
 
-        #Go to center of x
+        #Go to center of x then each corner of the x, drawing as you go
         if not self.all_X_done:
             if self.X_point_count == 0:
                 xx = point.mixer[i].x
                 yy = point.mixer[i].y
                 self.state = State.TELEPORT
+                # Turn off pen
                 self.set_pen_future = self.set_pen.call_async(SetPen.Request(r=255,width=5,off=1))
                 self.teleport_future = self.teleport.call_async(TeleportAbsolute.Request(x = xx , y = yy, theta = 0.0))
                 self.state = State.TELEPORT
                 
-                
+            
             if self.X_point_count == 1:
                 draw_x_1 = point.mixer[i].x - 0.25
                 draw_y_1 = point.mixer[i].y - 0.25
@@ -211,64 +203,75 @@ class WaypointNode(Node):
                    
     def timer_callback(self):
         """
-        TODO
+        Based on the turtle's state, perform different actions.This is where all the looping happens.
         """
-        # print("Actual state = ", self.state)
-        # print("Timer Callback")
-        self.spin_count += 1
 
+        self.spin_count += 1 # Keep track of how many times we spin
+
+        # If in moving state, issue commmands to move
             
         if self.state == State.MOVING:
             self.get_logger().info("Issuing Command!")
-            print(self.state)
+            # If reached last waypoint reset waypoint counter to loop
             if self.way_count == len(self.waypoint_l.mixer):
-                print("STOPPED")
                 self.way_count = 0
-                # self.state = State.STOPPED
-            else:
+            else:# Else move to the waypoint
                 self.move_to_waypoint()
+                
+                # If close enough to the waypoint, move on to the next one
                 if (abs(self.turtle_pose.x - self.waypoint_l.mixer[self.way_count].x) < self.tolerance and 
                     abs(self.turtle_pose.y - self.waypoint_l.mixer[self.way_count].y) < self.tolerance):
                     self.way_count += 1 
                     print("weeee")
 
+        # Handle teleport state for drawing X's
         if self.state == State.TELEPORT:
-            #print("State = TELEPORT")
+            
+            # Make sure teleport service has completed
             if self.teleport_future.done():
-                #print(f"Teleport {self.X_count} done")
+                
+                # If the current x is not all the way drawn
                 if not self.X_done:
-                    #print(self.X_point_count)
+                    # Move on to the next point
                     self.X_point_count += 1
                     self.drawX()   
+                    
+                # If you have finished the previous x, move on to the next one
+                # But first make sure you are not finished
+                # If finished, restart the count
                 elif self.X_count == len(self.waypoint_l.mixer)-1:
-                    # print("LENGTH", len(self.waypoint_l.mixer))
                     self.all_X_done = True
                     self.X_count = 0
                     self.state = State.STOPPED
-                    #print("DONE Teleporting")
                 else:
                     self.X_count += 1
                     self.X_point_count = 0
                     self.drawX()
                     self.X_done = False
                 
+        # Handle resetting 
         if self.state == State.RESET:
-            #print("State = reset")
             if self.reset_future.done():
                 print("Reset future done")
                 self.load_callback(self.waypoint_l, self.response_l)
                 self.state = State.TELEPORT
         
+        # Stop the turtle
         if self.state == State.STOPPED:
-                move_turtle = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
-                                        angular = Vector3(x = 0.0, y = 0.0, z = 0.0))
-                self.pub_vel.publish(move_turtle) 
-                
-        #print("STATE =", self.state)
+            move_turtle = Twist(linear = Vector3(x = 0.0, y = 0.0 ,z =0.0), 
+                                    angular = Vector3(x = 0.0, y = 0.0, z = 0.0))
+            self.pub_vel.publish(move_turtle) 
+            
                  
     def toggle_callback(self, request, response):
-        """_summary_
-        TODO
+        """Switch the turtle from moving to stopped.
+
+        Args:
+            request (empty): Nothing goes in here
+            response (empty): Nothing goes in here
+
+        Returns:
+            empty: Nothing returned
         """
         # Switch the state 
         if self.state == State.STOPPED:
